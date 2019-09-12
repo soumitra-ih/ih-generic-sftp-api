@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <sub-flow name="ih-generic-ftp-write_sub_flow">
+        <logger message="#[&quot;execution of flow ih-generic-ftp-write_sub_flow started&quot;]" level="INFO" doc:name="flow started"/>
+        <set-variable variableName="env" value="${env}" doc:name="set env"/>
+        <http:request config-ref="ih-inetegration-system-api-config" path="/sftp" method="GET" doc:name="get config details">
+            <http:request-builder>
+                <http:query-param paramName="host" value="#[message.inboundProperties.'http.query.params'.ftpServer]"/>
+                <http:query-param paramName="environment" value="#[flowVars.env]"/>
+            </http:request-builder>
+        </http:request>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <choice doc:name="does the details exists?">
+            <when expression="#[payload.id !=null ]">
+                <dw:transform-message doc:name="store ftp details">
+                    <dw:set-variable variableName="ftp_config"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+                </dw:transform-message>
+                <set-payload value="#[flowVars.requestDetails.data]" doc:name="Set Payload"/>
+                <sftp:outbound-endpoint exchange-pattern="request-response" outputPattern="#[flowVars.queryParams.fileName]" host="#[flowVars.ftp_config.host]" port="#[flowVars.ftp_config.port]" path="#[flowVars.queryParams.path]" user="#[flowVars.ftp_config.username]" password="#[flowVars.ftp_config.password]" responseTimeout="10000" duplicateHandling="overwrite" doc:name="Write"/>
+                <dw:transform-message doc:name="set success payload">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"code": "201",
+	"message": "created" ,
+	"description": "File " ++ flowVars.queryParams.fileName as :string ++ " written successfully"
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <logger message="#['no record found']" level="INFO" doc:name="no record found"/>
+                <async doc:name="Async">
+                    <dw:transform-message doc:name="set payload for error api">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "errorCode": "500",
+  "errorMessage": "Operation could not be performed",
+  "errorDescription": "Could not found any configuration details for host " ++ flowVars.queryParams.ftpServer,
+  "errorSource": "sftp",
+  ("errorObject": ((flowVars.requestDetails.relativePath as :string splitBy "/api/" )[-1] splitBy "/" )[0]) when (flowVars.requestDetails.relativePath !=null and flowVars.requestDetails.relativePath !={} and flowVars.requestDetails.relativePath !=[]),
+  ("errorId": flowVars.requestDetails.uriParams) when (flowVars.requestDetails.uriParams !=null and flowVars.requestDetails.uriParams !={} and flowVars.requestDetails.uriParams !=[]),
+  ("errorPayload": flowVars.requestDetails.data ) when (flowVars.requestDetails.data !=[] and flowVars.requestDetails.data !=null and flowVars.requestDetails.data !={}),
+  "flowReference": "ih-generic-ftp-write_sub_flow",
+  "environment": p('env')
+}]]></dw:set-payload>
+                    </dw:transform-message>
+                    <flow-ref name="error_api_call" doc:name="error_api_call"/>
+                </async>
+                <set-property propertyName="http.status" value="#['500']" doc:name="set http status"/>
+                <dw:transform-message doc:name="set error payload">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "code": "500",
+  "message": "Operation could not be performed",
+  "description": "Could not found any configuration details for host " ++ flowVars.queryParams.ftpServer
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+        <logger message="#[&quot;execution of flow ih-generic-ftp-write_sub_flow ended&quot;]" level="INFO" doc:name="flow ended"/>
+    </sub-flow>
+</mule>

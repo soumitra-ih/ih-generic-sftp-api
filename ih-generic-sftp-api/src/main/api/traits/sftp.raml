@@ -1,0 +1,22 @@
+#%RAML 1.0 Trait
+
+queryParameters:
+  path:
+    description: relative path to the root node of the ftp server where the file will be written
+    type: string
+    required: true
+    example: "/root/data/"
+
+  fileName:
+    description: name of the file in which the payload will be written
+    type: string
+    required: true
+    example: "sample.csv"
+
+  ftpServer:
+    description: details of the ftp server where the file will be written.
+    type: string
+    required: true
+    example: "iles.invh.net"
+      
+      

@@ -1,0 +1,50 @@
+#%RAML 1.0
+title: ih-generic-sftp-api
+version: 1.0
+description: generic api to perform all ftp operations
+
+
+traits:
+  sftp: !include traits/sftp.raml
+
+types:
+  sftp: !include types/resposneType.raml
+  alive: !include types/alive.raml
+
+securitySchemes:
+  basic:
+    type: Basic Authentication
+
+protocols: [ HTTPS ]
+securedBy: [ basic ]
+
+/alive:
+  description: test operability of source system and test endpoint functional operability.
+  get:
+    responses:
+      200:
+        body:
+          application/json:
+            type: alive
+            example: !include examples/get_alive_response.json
+
+/sftp:
+  description: supports all ftp operations
+  is: [sftp]
+  post:
+    body:
+      application/json:
+      application/csv:
+      application/xml:
+    responses:
+      201:
+        body:
+          application/json:
+            example: !include examples/success.json
+      500:
+        body:
+          application/json:
+            example: !include examples/error.json
+              
+              
+
