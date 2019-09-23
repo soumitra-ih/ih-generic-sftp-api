@@ -30,6 +30,7 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
     <sftp:connector name="generic_sftp" validateConnections="true" doc:name="SFTP"/>
     <secure-property-placeholder:config name="Secure_Property_Placeholder" encryptionAlgorithm="Blowfish" key="${secret.key}" location="mule-${env}-properties.properties" doc:name="Secure Property Placeholder"/>
     <http:request-config name="ih-inetegration-system-api-config" host="${int.api.host}"  doc:name="HTTP Request Configuration" port="${int.api.port}" basePath="${int.api.base.path}" protocol="HTTPS">
+        <http:basic-authentication username="${system.client.id}" password="${system.client.secret}"/>
         <tls:context>
             <tls:trust-store insecure="true"/>
         </tls:context>
